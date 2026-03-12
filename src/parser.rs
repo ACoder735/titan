@@ -46,7 +46,121 @@ impl Parser {
     }
 
     fn parse_statement(&mut self) -> AST {
-        // TODO
-        AST::Number(0.0)
+        match &self.current_token {
+            Token::Identifier(name) => {
+                let var_name = name.clone();
+                self.advance();
+                
+                match &self.current_token {
+                    Token::ColonAssign => {
+                        self.advance();
+                        let value = self.parse_expression();
+                        return AST::VarDecl { name: var_name, value: Box::new(value) };
+                    },
+                    Token::Assign => {
+                        self.advance();
+                        let value = self.parse_expression();
+                        return AST::Assign { name: var_name, value: Box::new(value) };
+                    },
+                    Token::LParen => {
+                        self.advance();
+                        let args = self.parse_args();
+                        return AST::FunctionCall { name: var_name, args };
+                    },
+                    _ => return AST::Identifier(var_name),
+                }
+            },
+            _ => return AST::Number(0.0),
+        }
+    }
+
+    fn parse_expression(&mut self) -> AST {
+        self.parse_term()
+    }
+
+    fn parse_term(&mut self) -> AST {
+        let mut left = self.parse_factor();
+        
+        while matches!(self.current_token, Token::Plus | Token::Minus) {
+            let op = match &self.current_token {
+                Token::Plus => "+".to_string(),
+                Token::Minus => "-".to_string(),
+                _ => unreachable!(),
+            };
+            self.advance();
+            let right = self.parse_factor();
+            left = AST::BinaryOp { left: Box::new(left), op, right: Box::new(right) };
+        }
+        
+        left
+    }
+
+    fn parse_factor(&mut self) -> AST {
+        let mut left = self.parse_primary();
+        
+        while matches!(self.current_token, Token::Star | Token::Slash | Token::Percent) {
+            let op = match &self.current_token {
+                Token::Star => "*".to_string(),
+                Token::Slash => "/".to_string(),
+                Token::Percent => "%".to_string(),
+                _ => unreachable!(),
+            };
+            self.advance();
+            let right = self.parse_primary();
+            left = AST::BinaryOp { left: Box::new(left), op, right: Box::new(right) };
+        }
+        
+        left
+    }
+
+    fn parse_primary(&mut self) -> AST {
+        match &self.current_token {
+            Token::Number(n) => {
+                let val = *n;
+                self.advance();
+                AST::Number(val)
+            },
+            Token::String(s) => {
+                let val = s.clone();
+                self.advance();
+                AST::String(val)
+            },
+            Token::Identifier(name) => {
+                let n = name.clone();
+                self.advance();
+                AST::Identifier(n)
+            },
+            Token::LParen => {
+                self.advance();
+                let expr = self.parse_expression();
+                if let Token::RParen = self.current_token {
+                    self.advance();
+                }
+                expr
+            },
+            _ => AST::Number(0.0),
+        }
+    }
+
+    fn parse_args(&mut self) -> Vec<AST> {
+        let mut args = Vec::new();
+        
+        if let Token::RParen = self.current_token {
+            self.advance();
+            return args;
+        }
+        
+        args.push(self.parse_expression());
+        
+        while let Token::Comma = self.current_token {
+            self.advance();
+            args.push(self.parse_expression());
+        }
+        
+        if let Token::RParen = self.current_token {
+            self.advance();
+        }
+        
+        args
     }
 }

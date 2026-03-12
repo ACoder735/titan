@@ -2,16 +2,13 @@ mod lexer;
 mod parser;
 
 use lexer::Lexer;
+use parser::Parser;
 
 fn main() {
     let code = String::from("x := 5 + 3");
-    let mut lexer = Lexer::new(code);
+    let lexer = Lexer::new(code);
+    let mut parser = Parser::new(lexer);
     
-    loop {
-        let token = lexer.next_token();
-        println!("{:?}", token);
-        if let lexer::Token::EOF = token {
-            break;
-        }
-    }
+    let ast = parser.parse();
+    println!("{:?}", ast);
 }
